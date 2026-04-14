@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} - 生成AIパスポート試験対策{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-9">
+        <!-- ナビゲーション -->
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <a href="/docs" class="btn btn-outline-secondary btn-sm">← 教材一覧</a>
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    他の教材
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    {% for doc in docs %}
+                    <li>
+                        <a class="dropdown-item {% if doc.slug == current_slug %}active{% endif %}"
+                           href="/docs/{{ doc.slug }}">{{ doc.title }}</a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body doc-content" id="doc-content">
+                <!-- Markdownをクライアント側でレンダリング -->
+                <div id="loading" class="text-center py-4">
+                    <div class="spinner-border text-secondary" role="status"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 前後ナビ -->
+        <div class="d-flex justify-content-between mt-3 mb-4">
+            {% set ns = namespace(prev=none, next=none, found=false) %}
+            {% for doc in docs %}
+                {% if ns.found and ns.next is none %}
+                    {% set ns.next = doc %}
+                {% endif %}
+                {% if doc.slug == current_slug %}
+                    {% set ns.found = true %}
+                {% endif %}
+                {% if not ns.found %}
+                    {% set ns.prev = doc %}
+                {% endif %}
+            {% endfor %}
+
+            {% if ns.prev %}
+                <a href="/docs/{{ ns.prev.slug }}" class="btn btn-outline-secondary btn-sm">← {{ ns.prev.title }}</a>
+            {% else %}
+                <span></span>
+            {% endif %}
+            {% if ns.next %}
+                <a href="/docs/{{ ns.next.slug }}" class="btn btn-outline-secondary btn-sm">{{ ns.next.title }} →</a>
+            {% else %}
+                <span></span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- marked.js でMarkdownをHTMLに変換 -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+    .doc-content h1 { font-size: 1.5rem; font-weight: 700; margin-top: 1.5rem; border-bottom: 2px solid var(--accent); padding-bottom: .3rem; }
+    .doc-content h2 { font-size: 1.25rem; font-weight: 700; margin-top: 1.3rem; color: #4a2d8a; }
+    .doc-content h3 { font-size: 1.1rem; font-weight: 600; margin-top: 1rem; }
+    .doc-content table { width: 100%; border-collapse: collapse; margin: .8rem 0; font-size: .88rem; }
+    .doc-content th, .doc-content td { border: 1px solid #ddd; padding: 6px 10px; }
+    .doc-content th { background: var(--accent-light); font-weight: 600; }
+    .doc-content code { background: #f0ecf5; padding: 1px 5px; border-radius: 4px; font-size: .88rem; }
+    .doc-content pre { background: #2d2d2d; color: #f8f8f2; padding: 12px; border-radius: .5rem; overflow-x: auto; font-size: .85rem; }
+    .doc-content pre code { background: none; color: inherit; padding: 0; }
+    .doc-content blockquote { border-left: 4px solid var(--accent); padding: .5rem 1rem; background: var(--accent-light); border-radius: 0 .5rem .5rem 0; margin: .8rem 0; }
+    .doc-content ul, .doc-content ol { padding-left: 1.3rem; }
+    .doc-content li { margin-bottom: .2rem; }
+    .doc-content hr { border-top: 2px solid #e0d8ed; margin: 1.5rem 0; }
+    @media (max-width: 576px) {
+        .doc-content { font-size: .92rem; }
+        .doc-content table { font-size: .8rem; display: block; overflow-x: auto; }
+    }
+</style>
+<script>
+const raw = {{ content | tojson }};
+document.getElementById('loading').style.display = 'none';
+document.getElementById('doc-content').innerHTML = marked.parse(raw);
+</script>
+{% endblock %}

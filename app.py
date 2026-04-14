@@ -5,9 +5,11 @@
 2026年2月試験〜 新シラバス（第4版）完全対応
 """
 
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, abort
 import random
 import os
+import glob
+import re
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'genai_passport_practice_2026')
@@ -745,6 +747,47 @@ def submit_answer():
 @app.route('/scores')
 def view_scores():
     return render_template('scores.html')
+
+
+# ===== 学習教材 =====
+DOCS_DIR = os.path.join(os.path.dirname(__file__), 'docs')
+
+def _doc_list():
+    """docsフォルダのmdファイル一覧を返す（README除外）"""
+    files = sorted(glob.glob(os.path.join(DOCS_DIR, '*.md')))
+    result = []
+    for f in files:
+        name = os.path.basename(f)
+        if name == 'README.md':
+            continue
+        slug = os.path.splitext(name)[0]
+        # ファイル名から表示タイトルを生成（先頭の番号_を除去）
+        title = re.sub(r'^\d+_', '', slug).replace('_', ' ')
+        result.append({'slug': slug, 'title': title, 'filename': name})
+    return result
+
+
+@app.route('/docs')
+def docs_index():
+    docs = _doc_list()
+    return render_template('docs_index.html', docs=docs)
+
+
+@app.route('/docs/<slug>')
+def docs_view(slug):
+    docs = _doc_list()
+    filepath = os.path.join(DOCS_DIR, slug + '.md')
+    if not os.path.isfile(filepath):
+        abort(404)
+    with open(filepath, 'r', encoding='utf-8') as f:
+        content = f.read()
+    # 現在のドキュメントのタイトルを取得
+    title = slug
+    for d in docs:
+        if d['slug'] == slug:
+            title = d['title']
+            break
+    return render_template('docs_view.html', content=content, title=title, docs=docs, current_slug=slug)
 
 
 if __name__ == '__main__':

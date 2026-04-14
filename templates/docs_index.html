@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}学習教材 - 生成AIパスポート試験対策{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header text-white py-3 text-center" style="background:linear-gradient(135deg,#6f42c1,#4a2d8a)">
+                <h2 class="mb-1">📖 学習教材</h2>
+                <small class="opacity-75">2026年新シラバス（第4版）完全対応</small>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    {% for doc in docs %}
+                    <a href="/docs/{{ doc.slug }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-3">
+                        <span>
+                            {% if 'シラバス' in doc.title %}📋
+                            {% elif '第1章' in doc.title %}🧠
+                            {% elif '第2章' in doc.title %}🤖
+                            {% elif '第3章' in doc.title %}📡
+                            {% elif '第4章' in doc.title %}⚖️
+                            {% elif '第5章' in doc.title %}💬
+                            {% elif '模擬' in doc.title %}📝
+                            {% elif '用語' in doc.title %}📚
+                            {% else %}📄
+                            {% endif %}
+                            {{ doc.title }}
+                        </span>
+                        <span class="text-muted">→</span>
+                    </a>
+                    {% endfor %}
+                </div>
+                <div class="text-center mt-4">
+                    <a href="/" class="btn btn-outline-secondary">ホームに戻る</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
