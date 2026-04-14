@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}{{ mode }} - 生成AIパスポート試験対策{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header text-white py-2 d-flex justify-content-between align-items-center" style="background:linear-gradient(135deg,#6f42c1,#4a2d8a)">
+                <strong>{{ mode }}</strong>
+                <span class="badge bg-light text-dark" id="progress-badge">
+                    <span id="question-num">{{ question_num }}</span> / {{ total }}
+                </span>
+            </div>
+            <div class="card-body">
+                <!-- プログレスバー -->
+                <div class="progress mb-3">
+                    <div class="progress-bar" id="progress-bar"
+                         style="width:{{ (1/total*100)|round(1) }}%;background:var(--accent)"></div>
+                </div>
+
+                <div id="question-container">
+                    <p class="fw-bold mb-3" id="question-text">Q{{ question.id }}. {{ question.question }}</p>
+                    <div id="choices-container">
+                        {% for choice in question.choices %}
+                        <button class="btn btn-outline-secondary choice-btn w-100"
+                                onclick="selectAnswer({{ loop.index0 }})"
+                                id="choice-{{ loop.index0 }}">
+                            {{ loop.index }}. {{ choice }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div id="result-container" style="display:none">
+                    <div id="result-message" class="alert mt-3"></div>
+                    <div id="explanation" class="explanation"></div>
+                    <button id="next-btn" class="btn text-white w-100 mt-3 py-2"
+                            style="background:var(--accent);border-radius:.75rem"
+                            onclick="nextQuestion()">次の問題 →</button>
+                    <div id="final-result" style="display:none" class="mt-3">
+                        <div class="alert alert-info text-center">
+                            <h5 class="mb-2">📊 結果</h5>
+                            <p class="display-6 fw-bold mb-1" id="score-text"></p>
+                            <p class="text-muted small" id="score-detail"></p>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a href="{{ request.path }}" class="btn btn-outline-primary">もう一度挑戦</a>
+                            <a href="/" class="btn btn-outline-secondary">ホームに戻る</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const TOTAL = {{ total }};
+const MODE = "{{ mode }}";
+let nextData = null;
+
+function selectAnswer(idx) {
+    document.querySelectorAll('.choice-btn').forEach(b => b.disabled = true);
+    document.getElementById('choice-' + idx).classList.add('btn-warning');
+
+    fetch('/submit_answer', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({answer: idx})
+    })
+    .then(r => r.json())
+    .then(data => showResult(data, idx));
+}
+
+function showResult(data, selected) {
+    const correct = document.getElementById('choice-' + data.correct_answer);
+    correct.classList.remove('btn-outline-secondary');
+    correct.classList.add('btn-success');
+
+    if (!data.correct) {
+        const sel = document.getElementById('choice-' + selected);
+        sel.classList.remove('btn-warning');
+        sel.classList.add('btn-danger');
+    } else {
+        document.getElementById('choice-' + selected).classList.remove('btn-warning');
+        document.getElementById('choice-' + selected).classList.add('btn-success');
+    }
+
+    const msg = document.getElementById('result-message');
+    msg.className = data.correct ? 'alert alert-success mt-3' : 'alert alert-danger mt-3';
+    msg.innerHTML = data.correct ? '✅ 正解！' : '❌ 不正解';
+
+    document.getElementById('explanation').innerHTML = '<strong>解説:</strong> ' + data.explanation;
+
+    if (data.has_next) {
+        document.getElementById('next-btn').style.display = 'block';
+        nextData = data;
+    } else {
+        document.getElementById('next-btn').style.display = 'none';
+        showFinal(data.final_score);
+    }
+    document.getElementById('result-container').style.display = 'block';
+    window.scrollTo({top: document.getElementById('result-container').offsetTop - 80, behavior: 'smooth'});
+}
+
+function nextQuestion() {
+    if (!nextData || !nextData.next_question) return;
+    const q = nextData.next_question;
+    const num = nextData.question_num;
+
+    document.getElementById('question-text').innerHTML = 'Q' + q.id + '. ' + q.question;
+    document.getElementById('question-num').textContent = num;
+    document.getElementById('progress-bar').style.width = (num / TOTAL * 100) + '%';
+
+    const container = document.getElementById('choices-container');
+    container.innerHTML = '';
+    q.choices.forEach((c, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-outline-secondary choice-btn w-100';
+        btn.onclick = () => selectAnswer(i);
+        btn.id = 'choice-' + i;
+        btn.innerHTML = (i + 1) + '. ' + c;
+        container.appendChild(btn);
+    });
+
+    document.getElementById('result-container').style.display = 'none';
+    window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+function showFinal(s) {
+    document.getElementById('score-text').textContent = s.percentage.toFixed(0) + '%';
+    document.getElementById('score-detail').textContent = s.correct + ' / ' + s.total + ' 問正解';
+    saveScore(MODE, s.percentage, s.correct, s.total);
+    document.getElementById('final-result').style.display = 'block';
+}
+</script>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header text-white text-center py-3" style="background:linear-gradient(135deg,#6f42c1,#4a2d8a)">
+                <h2 class="mb-1">🤖 生成AIパスポート試験対策</h2>
+                <small class="opacity-75">2026年新シラバス（第4版）対応 ・ 全{{ total }}問収録</small>
+            </div>
+            <div class="card-body">
+                <div class="d-grid mb-3">
+                    <a href="/exam" class="btn btn-lg text-white fw-bold py-3" style="background:linear-gradient(135deg,#6f42c1,#9b59b6);border:none;border-radius:.75rem">
+                        🎯 全章ランダム10問に挑戦
+                    </a>
+                </div>
+
+                <h5 class="mt-4 mb-3">📚 章別に学習する</h5>
+                <div class="row g-2">
+                    {% for ch_id, ch in chapters.items() %}
+                    <div class="col-12">
+                        <a href="/exam/{{ ch_id }}" class="text-decoration-none">
+                            <div class="card chapter-card">
+                                <div class="card-body d-flex justify-content-between align-items-center py-3">
+                                    <div>
+                                        <span class="badge badge-chapter me-2">第{{ ch_id }}章</span>
+                                        <span class="text-dark">{{ ch.name }}</span>
+                                    </div>
+                                    <span class="text-muted small">{{ ch.count }}問 →</span>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="card mt-4" style="background:#f9f7fc">
+                    <div class="card-body">
+                        <h6>💡 学習のポイント</h6>
+                        <ul class="mb-0 small">
+                            <li>第4章（法律・ガイドライン）は範囲が広く最優先</li>
+                            <li>第2章・第3章の技術略語（CNN, GAN, RAG, MCP等）を正確に</li>
+                            <li>2026年改訂の新規項目（RAG, AIエージェント, AI新法）は要注意</li>
+                            <li>第5章は実際にChatGPT等を触りながら学ぶと効果的</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
