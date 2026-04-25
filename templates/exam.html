@@ -6,9 +6,14 @@
         <div class="card">
             <div class="card-header text-white py-2 d-flex justify-content-between align-items-center" style="background:linear-gradient(135deg,#6f42c1,#4a2d8a)">
                 <strong>{{ mode }}</strong>
-                <span class="badge bg-light text-dark" id="progress-badge">
-                    <span id="question-num">{{ question_num }}</span> / {{ total }}
-                </span>
+                <div class="d-flex align-items-center gap-2">
+                    {% if timer_seconds > 0 %}
+                    <span class="badge bg-danger" id="timer-badge">60:00</span>
+                    {% endif %}
+                    <span class="badge bg-light text-dark" id="progress-badge">
+                        <span id="question-num">{{ question_num }}</span> / {{ total }}
+                    </span>
+                </div>
             </div>
             <div class="card-body">
                 <!-- プログレスバー -->
@@ -41,9 +46,17 @@
                             <h5 class="mb-2">📊 結果</h5>
                             <p class="display-6 fw-bold mb-1" id="score-text"></p>
                             <p class="text-muted small" id="score-detail"></p>
+                            <p class="small" id="time-detail" style="display:none"></p>
+                        </div>
+                        <div id="wrong-summary" style="display:none" class="mb-3">
+                            <div class="alert alert-warning small">
+                                <strong>間違えた問題:</strong>
+                                <span id="wrong-count"></span>問が苦手リストに追加されました。
+                                ホームの「苦手克服モード」で復習できます。
+                            </div>
                         </div>
                         <div class="d-grid gap-2">
-                            <a href="{{ request.path }}" class="btn btn-outline-primary">もう一度挑戦</a>
+                            <a href="{{ request.path }}{% if request.query_string %}?{{ request.query_string.decode() }}{% endif %}" class="btn btn-outline-primary">もう一度挑戦</a>
                             <a href="/" class="btn btn-outline-secondary">ホームに戻る</a>
                         </div>
                     </div>
@@ -58,8 +71,66 @@
 <script>
 const TOTAL = {{ total }};
 const MODE = "{{ mode }}";
+const TIMER_SECONDS = {{ timer_seconds }};
 let nextData = null;
+let wrongIds = [];  // 今回間違えた問題ID
+let timerInterval = null;
+let remainingSeconds = TIMER_SECONDS;
+let startTime = Date.now();
 
+// ===== タイマー =====
+function startTimer() {
+    if (TIMER_SECONDS <= 0) return;
+    const badge = document.getElementById('timer-badge');
+    timerInterval = setInterval(() => {
+        remainingSeconds--;
+        const m = Math.floor(remainingSeconds / 60);
+        const s = remainingSeconds % 60;
+        badge.textContent = m + ':' + String(s).padStart(2, '0');
+        if (remainingSeconds <= 300) badge.classList.add('bg-warning');
+        if (remainingSeconds <= 60) { badge.classList.remove('bg-warning'); badge.classList.add('bg-danger'); badge.style.animation = 'pulse .5s infinite'; }
+        if (remainingSeconds <= 0) {
+            clearInterval(timerInterval);
+            badge.textContent = '時間切れ';
+            // 強制終了: 残りの問題は不正解扱い
+            forceFinish();
+        }
+    }, 1000);
+}
+
+function forceFinish() {
+    document.querySelectorAll('.choice-btn').forEach(b => b.disabled = true);
+    fetch('/submit_answer', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({answer: -1, force_finish: true})
+    })
+    .then(r => r.json())
+    .then(data => {
+        // 最終結果を表示（サーバー側で残り問題をスキップ）
+        if (data.final_score) showFinal(data.final_score);
+        else location.href = '/';
+    });
+}
+
+// ===== 苦手問題の記録 =====
+function recordWrong(questionId) {
+    wrongIds.push(questionId);
+    const stored = JSON.parse(localStorage.getItem('genaiWeakIds') || '[]');
+    if (!stored.includes(questionId)) {
+        stored.push(questionId);
+        localStorage.setItem('genaiWeakIds', JSON.stringify(stored));
+    }
+}
+
+function recordCorrect(questionId) {
+    // 正解したら苦手リストから除去
+    let stored = JSON.parse(localStorage.getItem('genaiWeakIds') || '[]');
+    stored = stored.filter(id => id !== questionId);
+    localStorage.setItem('genaiWeakIds', JSON.stringify(stored));
+}
+
+// ===== 回答処理 =====
 function selectAnswer(idx) {
     document.querySelectorAll('.choice-btn').forEach(b => b.disabled = true);
     document.getElementById('choice-' + idx).classList.add('btn-warning');
@@ -82,9 +153,11 @@ function showResult(data, selected) {
         const sel = document.getElementById('choice-' + selected);
         sel.classList.remove('btn-warning');
         sel.classList.add('btn-danger');
+        recordWrong(data.question_id);
     } else {
         document.getElementById('choice-' + selected).classList.remove('btn-warning');
         document.getElementById('choice-' + selected).classList.add('btn-success');
+        recordCorrect(data.question_id);
     }
 
     const msg = document.getElementById('result-message');
@@ -98,6 +171,7 @@ function showResult(data, selected) {
         nextData = data;
     } else {
         document.getElementById('next-btn').style.display = 'none';
+        if (timerInterval) clearInterval(timerInterval);
         showFinal(data.final_score);
     }
     document.getElementById('result-container').style.display = 'block';
@@ -132,7 +206,29 @@ function showFinal(s) {
     document.getElementById('score-text').textContent = s.percentage.toFixed(0) + '%';
     document.getElementById('score-detail').textContent = s.correct + ' / ' + s.total + ' 問正解';
     saveScore(MODE, s.percentage, s.correct, s.total);
+
+    // 経過時間
+    if (TIMER_SECONDS > 0) {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const em = Math.floor(elapsed / 60);
+        const es = elapsed % 60;
+        document.getElementById('time-detail').textContent = '所要時間: ' + em + '分' + es + '秒';
+        document.getElementById('time-detail').style.display = 'block';
+    }
+
+    // 間違えた問題の表示
+    if (wrongIds.length > 0) {
+        document.getElementById('wrong-count').textContent = wrongIds.length;
+        document.getElementById('wrong-summary').style.display = 'block';
+    }
+
     document.getElementById('final-result').style.display = 'block';
 }
+
+// タイマー開始
+document.addEventListener('DOMContentLoaded', startTimer);
 </script>
+<style>
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+</style>
 {% endblock %}

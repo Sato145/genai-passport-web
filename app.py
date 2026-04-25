@@ -677,32 +677,74 @@ def index():
 
 @app.route('/exam')
 def exam():
-    """全章からランダム10問"""
+    """全章ランダム — クエリパラメータ n で問題数を指定"""
     data = get_exam_data()
-    questions = random.sample(data.questions, min(10, len(data.questions)))
+    n = request.args.get('n', 10, type=int)
+    n = max(1, min(n, len(data.questions)))
+    timer = request.args.get('timer', 0, type=int)  # 秒。0=タイマーなし
+    questions = random.sample(data.questions, n)
     session['current_questions'] = questions
     session['current_question_index'] = 0
     session['correct_answers'] = 0
+    mode_label = {10: "クイック10問", 30: "ハーフ30問", 60: "本番モード60問"}.get(n, f"ランダム{n}問")
     return render_template('exam.html',
                            question=questions[0], question_num=1,
-                           total=len(questions), mode="全章ランダム")
+                           total=len(questions), mode=mode_label,
+                           timer_seconds=timer)
 
 
 @app.route('/exam/<int:chapter>')
 def exam_chapter(chapter):
-    """章別問題"""
+    """章別問題 — クエリパラメータ n で問題数を指定（0=全問）"""
     data = get_exam_data()
     pool = data.get_by_chapter(chapter)
     if not pool:
         return "該当する章がありません", 404
-    questions = random.sample(pool, min(10, len(pool)))
+    n = request.args.get('n', 10, type=int)
+    if n <= 0 or n > len(pool):
+        n = len(pool)
+    questions = random.sample(pool, n)
     session['current_questions'] = questions
     session['current_question_index'] = 0
     session['correct_answers'] = 0
     chapter_name = data.chapters.get(chapter, "")
     return render_template('exam.html',
                            question=questions[0], question_num=1,
-                           total=len(questions), mode=f"第{chapter}章 {chapter_name}")
+                           total=len(questions),
+                           mode=f"第{chapter}章 {chapter_name}",
+                           timer_seconds=0)
+
+
+@app.route('/exam/weak', methods=['POST'])
+def exam_weak():
+    """苦手克服モード — クライアントから間違えた問題IDリストを受け取って出題"""
+    data = get_exam_data()
+    weak_ids = request.json.get('ids', [])
+    if not weak_ids:
+        return jsonify({'error': '苦手問題がありません'}), 400
+    id_set = set(weak_ids)
+    pool = [q for q in data.questions if q['id'] in id_set]
+    if not pool:
+        return jsonify({'error': '該当する問題が見つかりません'}), 404
+    random.shuffle(pool)
+    n = min(len(pool), 20)  # 最大20問
+    questions = pool[:n]
+    session['current_questions'] = questions
+    session['current_question_index'] = 0
+    session['correct_answers'] = 0
+    return jsonify({'redirect': '/exam/weak/start'})
+
+
+@app.route('/exam/weak/start')
+def exam_weak_start():
+    """苦手克服モード — セッションに問題がセット済みの状態で表示"""
+    questions = session.get('current_questions', [])
+    if not questions:
+        return "苦手問題がセットされていません。ホームからやり直してください。", 400
+    return render_template('exam.html',
+                           question=questions[0], question_num=1,
+                           total=len(questions), mode="苦手克服モード",
+                           timer_seconds=0)
 
 
 @app.route('/submit_answer', methods=['POST'])
@@ -727,6 +769,7 @@ def submit_answer():
         'correct': is_correct,
         'correct_answer': q['answer'],
         'explanation': q['explanation'],
+        'question_id': q['id'],
     }
 
     session['current_question_index'] = idx + 1

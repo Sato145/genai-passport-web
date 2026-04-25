@@ -8,36 +8,78 @@
                 <small class="opacity-75">2026年新シラバス（第4版）対応 ・ 全{{ total }}問収録</small>
             </div>
             <div class="card-body">
-                <div class="d-grid mb-3">
-                    <a href="/exam" class="btn btn-lg text-white fw-bold py-3" style="background:linear-gradient(135deg,#6f42c1,#9b59b6);border:none;border-radius:.75rem">
-                        🎯 全章ランダム10問に挑戦
-                    </a>
+
+                <!-- メインモード -->
+                <h5 class="mb-3">🎯 問題に挑戦する</h5>
+                <div class="row g-2 mb-2">
+                    <div class="col-4">
+                        <a href="/exam?n=10" class="btn btn-outline-primary w-100 py-3 d-flex flex-column align-items-center" style="border-radius:.75rem">
+                            <span class="fs-4">⚡</span>
+                            <strong>10問</strong>
+                            <small class="text-muted">クイック</small>
+                        </a>
+                    </div>
+                    <div class="col-4">
+                        <a href="/exam?n=30" class="btn btn-outline-primary w-100 py-3 d-flex flex-column align-items-center" style="border-radius:.75rem">
+                            <span class="fs-4">📝</span>
+                            <strong>30問</strong>
+                            <small class="text-muted">ハーフ</small>
+                        </a>
+                    </div>
+                    <div class="col-4">
+                        <a href="/exam?n=60&timer=3600" class="btn btn-outline-danger w-100 py-3 d-flex flex-column align-items-center" style="border-radius:.75rem">
+                            <span class="fs-4">🏆</span>
+                            <strong>60問</strong>
+                            <small class="text-muted">本番模試</small>
+                        </a>
+                    </div>
                 </div>
 
-                <h5 class="mt-4 mb-3">📚 章別に学習する</h5>
+                <!-- 苦手克服 -->
+                <div class="d-grid mb-4">
+                    <button onclick="startWeakMode()" class="btn btn-outline-warning py-2" style="border-radius:.75rem" id="weak-btn">
+                        🔄 苦手克服モード <small class="text-muted" id="weak-count"></small>
+                    </button>
+                </div>
+
+                <!-- 章別 -->
+                <h5 class="mb-3">📚 章別に学習する</h5>
                 <div class="row g-2">
                     {% for ch_id, ch in chapters.items() %}
                     <div class="col-12">
-                        <a href="/exam/{{ ch_id }}" class="text-decoration-none">
-                            <div class="card chapter-card">
-                                <div class="card-body d-flex justify-content-between align-items-center py-3">
-                                    <div>
-                                        <span class="badge badge-chapter me-2">第{{ ch_id }}章</span>
-                                        <span class="text-dark">{{ ch.name }}</span>
-                                    </div>
-                                    <span class="text-muted small">{{ ch.count }}問 →</span>
+                        <div class="card chapter-card">
+                            <div class="card-body d-flex justify-content-between align-items-center py-2 px-3">
+                                <div>
+                                    <span class="badge badge-chapter me-1">第{{ ch_id }}章</span>
+                                    <span class="text-dark small">{{ ch.name }}</span>
+                                </div>
+                                <div class="d-flex gap-1">
+                                    <a href="/exam/{{ ch_id }}?n=10" class="btn btn-sm btn-outline-secondary">10問</a>
+                                    <a href="/exam/{{ ch_id }}?n=0" class="btn btn-sm btn-outline-secondary">全{{ ch.count }}問</a>
                                 </div>
                             </div>
-                        </a>
+                        </div>
                     </div>
                     {% endfor %}
                 </div>
 
-                <div class="card mt-4" style="background:#f9f7fc">
-                    <div class="card-body">
-                        <h6>📖 学習教材</h6>
-                        <p class="small mb-2">シラバス完全対応の要点整理・用語集・模擬問題を収録</p>
-                        <a href="/docs" class="btn btn-outline-secondary btn-sm">教材を見る →</a>
+                <!-- 教材・ポイント -->
+                <div class="row g-2 mt-3">
+                    <div class="col-6">
+                        <a href="/docs" class="card text-decoration-none h-100" style="background:#f9f7fc">
+                            <div class="card-body text-center py-3">
+                                <span class="fs-4">📖</span>
+                                <p class="mb-0 small fw-bold text-dark">学習教材</p>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-6">
+                        <a href="/scores" class="card text-decoration-none h-100" style="background:#f9f7fc">
+                            <div class="card-body text-center py-3">
+                                <span class="fs-4">📊</span>
+                                <p class="mb-0 small fw-bold text-dark">成績確認</p>
+                            </div>
+                        </a>
                     </div>
                 </div>
 
@@ -45,10 +87,10 @@
                     <div class="card-body">
                         <h6>💡 学習のポイント</h6>
                         <ul class="mb-0 small">
-                            <li>第4章（法律・ガイドライン）は範囲が広く最優先</li>
-                            <li>第2章・第3章の技術略語（CNN, GAN, RAG, MCP等）を正確に</li>
-                            <li>2026年改訂の新規項目（RAG, AIエージェント, AI新法）は要注意</li>
-                            <li>第5章は実際にChatGPT等を触りながら学ぶと効果的</li>
+                            <li><strong>10問クイック</strong>: 通勤・休憩の隙間時間に</li>
+                            <li><strong>30問ハーフ</strong>: 弱点の洗い出しに</li>
+                            <li><strong>60問本番模試</strong>: 60分タイマー付き。本番と同じ条件で実力チェック</li>
+                            <li><strong>苦手克服</strong>: 過去に間違えた問題だけを集中演習</li>
                         </ul>
                     </div>
                 </div>
@@ -56,4 +98,41 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 苦手問題の数を表示
+function updateWeakCount() {
+    const weak = JSON.parse(localStorage.getItem('genaiWeakIds') || '[]');
+    const el = document.getElementById('weak-count');
+    const btn = document.getElementById('weak-btn');
+    if (weak.length > 0) {
+        el.textContent = `（${weak.length}問）`;
+        btn.classList.remove('disabled');
+    } else {
+        el.textContent = '（まだデータなし）';
+    }
+}
+
+function startWeakMode() {
+    const weak = JSON.parse(localStorage.getItem('genaiWeakIds') || '[]');
+    if (weak.length === 0) {
+        alert('まだ間違えた問題がありません。\nまずは問題を解いてみましょう！');
+        return;
+    }
+    fetch('/exam/weak', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ids: weak})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.redirect) window.location.href = data.redirect;
+        else alert(data.error || 'エラーが発生しました');
+    });
+}
+
+document.addEventListener('DOMContentLoaded', updateWeakCount);
+</script>
 {% endblock %}
