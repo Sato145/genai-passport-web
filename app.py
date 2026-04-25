@@ -12,6 +12,7 @@ import glob
 import re
 from questions_extra import EXTRA_QUESTIONS
 from questions_extra2 import EXTRA_QUESTIONS_3
+from questions_extra3 import EXTRA_QUESTIONS_4
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'genai_passport_practice_2026')
@@ -19,7 +20,7 @@ app.secret_key = os.environ.get('SECRET_KEY', 'genai_passport_practice_2026')
 
 class GenAIPassportData:
     def __init__(self):
-        self.questions = self._build_questions() + EXTRA_QUESTIONS + EXTRA_QUESTIONS_3
+        self.questions = self._build_questions() + EXTRA_QUESTIONS + EXTRA_QUESTIONS_3 + EXTRA_QUESTIONS_4
         self.chapters = {
             1: "AI（人工知能）",
             2: "生成AI（ジェネレーティブAI）",
