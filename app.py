@@ -666,6 +666,27 @@ def get_exam_data():
     return exam_data
 
 
+def _q_by_id(qid):
+    """IDから問題を引き当てる"""
+    data = get_exam_data()
+    for q in data.questions:
+        if q['id'] == qid:
+            return q
+    return None
+
+
+def _start_exam(question_ids, mode, timer=0):
+    """セッションにIDリストだけ保存して試験開始"""
+    session['q_ids'] = question_ids
+    session['q_idx'] = 0
+    session['q_correct'] = 0
+    first = _q_by_id(question_ids[0])
+    return render_template('exam.html',
+                           question=first, question_num=1,
+                           total=len(question_ids), mode=mode,
+                           timer_seconds=timer)
+
+
 @app.route('/')
 def index():
     data = get_exam_data()
@@ -677,25 +698,17 @@ def index():
 
 @app.route('/exam')
 def exam():
-    """全章ランダム — クエリパラメータ n で問題数を指定"""
     data = get_exam_data()
     n = request.args.get('n', 10, type=int)
     n = max(1, min(n, len(data.questions)))
-    timer = request.args.get('timer', 0, type=int)  # 秒。0=タイマーなし
-    questions = random.sample(data.questions, n)
-    session['current_questions'] = questions
-    session['current_question_index'] = 0
-    session['correct_answers'] = 0
+    timer = request.args.get('timer', 0, type=int)
+    ids = [q['id'] for q in random.sample(data.questions, n)]
     mode_label = {10: "クイック10問", 30: "ハーフ30問", 60: "本番モード60問"}.get(n, f"ランダム{n}問")
-    return render_template('exam.html',
-                           question=questions[0], question_num=1,
-                           total=len(questions), mode=mode_label,
-                           timer_seconds=timer)
+    return _start_exam(ids, mode_label, timer)
 
 
 @app.route('/exam/<int:chapter>')
 def exam_chapter(chapter):
-    """章別問題 — クエリパラメータ n で問題数を指定（0=全問）"""
     data = get_exam_data()
     pool = data.get_by_chapter(chapter)
     if not pool:
@@ -703,21 +716,13 @@ def exam_chapter(chapter):
     n = request.args.get('n', 10, type=int)
     if n <= 0 or n > len(pool):
         n = len(pool)
-    questions = random.sample(pool, n)
-    session['current_questions'] = questions
-    session['current_question_index'] = 0
-    session['correct_answers'] = 0
+    ids = [q['id'] for q in random.sample(pool, n)]
     chapter_name = data.chapters.get(chapter, "")
-    return render_template('exam.html',
-                           question=questions[0], question_num=1,
-                           total=len(questions),
-                           mode=f"第{chapter}章 {chapter_name}",
-                           timer_seconds=0)
+    return _start_exam(ids, f"第{chapter}章 {chapter_name}")
 
 
 @app.route('/exam/weak', methods=['POST'])
 def exam_weak():
-    """苦手克服モード — クライアントから間違えた問題IDリストを受け取って出題"""
     data = get_exam_data()
     weak_ids = request.json.get('ids', [])
     if not weak_ids:
@@ -727,23 +732,22 @@ def exam_weak():
     if not pool:
         return jsonify({'error': '該当する問題が見つかりません'}), 404
     random.shuffle(pool)
-    n = min(len(pool), 20)  # 最大20問
-    questions = pool[:n]
-    session['current_questions'] = questions
-    session['current_question_index'] = 0
-    session['correct_answers'] = 0
+    ids = [q['id'] for q in pool[:20]]
+    session['q_ids'] = ids
+    session['q_idx'] = 0
+    session['q_correct'] = 0
     return jsonify({'redirect': '/exam/weak/start'})
 
 
 @app.route('/exam/weak/start')
 def exam_weak_start():
-    """苦手克服モード — セッションに問題がセット済みの状態で表示"""
-    questions = session.get('current_questions', [])
-    if not questions:
+    ids = session.get('q_ids', [])
+    if not ids:
         return "苦手問題がセットされていません。ホームからやり直してください。", 400
+    first = _q_by_id(ids[0])
     return render_template('exam.html',
-                           question=questions[0], question_num=1,
-                           total=len(questions), mode="苦手克服モード",
+                           question=first, question_num=1,
+                           total=len(ids), mode="苦手克服モード",
                            timer_seconds=0)
 
 
@@ -752,18 +756,18 @@ def submit_answer():
     req = request.json
     selected = int(req['answer'])
 
-    questions = session.get('current_questions', [])
-    idx = session.get('current_question_index', 0)
-    correct_count = session.get('correct_answers', 0)
+    ids = session.get('q_ids', [])
+    idx = session.get('q_idx', 0)
+    correct_count = session.get('q_correct', 0)
 
-    if idx >= len(questions):
+    if idx >= len(ids):
         return jsonify({'error': 'Invalid'}), 400
 
-    q = questions[idx]
+    q = _q_by_id(ids[idx])
     is_correct = selected == q['answer']
     if is_correct:
         correct_count += 1
-        session['correct_answers'] = correct_count
+        session['q_correct'] = correct_count
 
     resp = {
         'correct': is_correct,
@@ -772,18 +776,19 @@ def submit_answer():
         'question_id': q['id'],
     }
 
-    session['current_question_index'] = idx + 1
+    session['q_idx'] = idx + 1
 
-    if idx + 1 < len(questions):
-        resp['next_question'] = questions[idx + 1]
+    if idx + 1 < len(ids):
+        nq = _q_by_id(ids[idx + 1])
+        resp['next_question'] = nq
         resp['question_num'] = idx + 2
         resp['has_next'] = True
     else:
-        score = (correct_count / len(questions)) * 100
+        score = (correct_count / len(ids)) * 100
         resp['has_next'] = False
         resp['final_score'] = {
             'correct': correct_count,
-            'total': len(questions),
+            'total': len(ids),
             'percentage': score,
         }
 
